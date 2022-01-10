@@ -25,7 +25,6 @@ pico_sdk_init()
 
 add_executable(Teclado Teclado.cpp)
 
-
 pico_set_program_name(Teclado "Teclado")
 pico_set_program_version(Teclado "0.1")
 

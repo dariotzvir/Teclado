@@ -469,6 +469,7 @@ CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
 DOXYGEN_DOT_EXECUTABLE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: DOXYGEN_EXECUTABLE
 DOXYGEN_EXECUTABLE-ADVANCED:INTERNAL=1
+FAMILY_MCUS:INTERNAL=RP2040
 //Details about finding Python3
 FIND_PACKAGE_MESSAGE_DETAILS_Python3:INTERNAL=[C:/Users/dario/AppData/Local/Programs/Python/Python310/python.exe][cfound components: Interpreter ][v3.10.1()]
 PICO_BOOT_STAGE2_DIR:INTERNAL=E:/Users/dario/Documents/Pico/pico-sdk/src/rp2_common/boot_stage2
