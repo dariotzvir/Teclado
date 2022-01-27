@@ -8,7 +8,9 @@ typedef unsigned char byte;
 
 struct IO
 {
-    uint filas[N] = {11, 12, 13, 14, 15};
-    uint columnas[M] = {0, 1, 2, 3};
-    uint led = 25;
+    const uint filas[N] = {11, 12, 13, 14, 15};
+    const uint columnas[M] = {0, 1, 2, 3};
+    const uint led = 25;
+    const char keys[N][M] = {{'A','B','C','D'},{'A','B','C','D',},{'A','B','C','D'},{'A','B','C','D'},{'A','B','C','D'}}; 
 };
+
