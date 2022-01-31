@@ -115,7 +115,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-mcpu=cortex-m0plus -mthumb -O3 -DNDEBUG  "
+					"fragment" : "-mcpu=cortex-m0plus -mthumb -Og -g  "
 				},
 				{
 					"backtrace" : 2,
@@ -149,7 +149,7 @@
 			[
 				{
 					"backtrace" : 2,
-					"define" : "CFG_TUSB_DEBUG=0"
+					"define" : "CFG_TUSB_DEBUG=1"
 				},
 				{
 					"backtrace" : 2,
@@ -293,7 +293,7 @@
 				},
 				{
 					"backtrace" : 2,
-					"define" : "PICO_CMAKE_BUILD_TYPE=\"Release\""
+					"define" : "PICO_CMAKE_BUILD_TYPE=\"Debug\""
 				},
 				{
 					"backtrace" : 2,
@@ -506,7 +506,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-mcpu=cortex-m0plus -mthumb -O3 -DNDEBUG  "
+					"fragment" : "-mcpu=cortex-m0plus -mthumb -Og -g  "
 				},
 				{
 					"backtrace" : 2,
@@ -524,7 +524,7 @@
 			[
 				{
 					"backtrace" : 2,
-					"define" : "CFG_TUSB_DEBUG=0"
+					"define" : "CFG_TUSB_DEBUG=1"
 				},
 				{
 					"backtrace" : 2,
@@ -668,7 +668,7 @@
 				},
 				{
 					"backtrace" : 2,
-					"define" : "PICO_CMAKE_BUILD_TYPE=\"Release\""
+					"define" : "PICO_CMAKE_BUILD_TYPE=\"Debug\""
 				},
 				{
 					"backtrace" : 2,
@@ -933,7 +933,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-mcpu=cortex-m0plus -mthumb -O3 -DNDEBUG  "
+					"fragment" : "-mcpu=cortex-m0plus -mthumb -Og -g  "
 				},
 				{
 					"backtrace" : 2,
@@ -948,7 +948,7 @@
 			[
 				{
 					"backtrace" : 2,
-					"define" : "CFG_TUSB_DEBUG=0"
+					"define" : "CFG_TUSB_DEBUG=1"
 				},
 				{
 					"backtrace" : 2,
@@ -1092,7 +1092,7 @@
 				},
 				{
 					"backtrace" : 2,
-					"define" : "PICO_CMAKE_BUILD_TYPE=\"Release\""
+					"define" : "PICO_CMAKE_BUILD_TYPE=\"Debug\""
 				},
 				{
 					"backtrace" : 2,
@@ -1328,7 +1328,7 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "-mcpu=cortex-m0plus -mthumb -O3 -DNDEBUG",
+				"fragment" : "-mcpu=cortex-m0plus -mthumb -Og -g",
 				"role" : "flags"
 			},
 			{
