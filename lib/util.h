@@ -17,9 +17,9 @@ struct IO
 
 struct KEY
 {
-    char modifier;
-    int hid_key;
-    char ascci_key;
+    uint8_t modifier;
+    uint8_t hid_key;
     unsigned long last_millis;
     bool pressed_flag;
+    char ascii;
 };

@@ -18,26 +18,19 @@ enum  {
 
 static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 
+void load_keys(struct KEY (*keys)[M]);
 void matrix_read(struct IO io, struct KEY (*keys)[M]);
-void hid_task(uint8_t *ptr_buff, uint8_t *buffer);
+void hid_task(uint8_t modifier, uint8_t hid_key);
 
 int main()
 {
-    uint8_t buffer [BUFFER_LENGHT] = {0};
-    uint8_t *ptr_buff;
 
     board_init();
     tusb_init();
     stdio_init_all();
 
-    const char a[N][M] = {{'A','B','C','D'},{'E','F','G','H'},{'I','J','K','L'},{'M','N','O','P'},{'Q','R','S','T'}}; 
     struct KEY keys [N][M];
-    for(int i=0; i<N; i++)
-        for(int j=0; j<M; j++)
-        {
-            keys[i][j].ascci_key = a[i][j];
-            keys[i][j].pressed_flag = 0;
-        }
+    load_keys(keys);
 
     uart_init(uart0, 115200);
     gpio_set_function(16, GPIO_FUNC_UART);
@@ -64,15 +57,50 @@ int main()
     }
     while(1)
     {
-        //uart_puts(uart0, "Hello world!");
-        tud_task(); // tinyusb device task
+        tud_task();
         
         matrix_read(io, keys);
 
-        hid_task();
+        //hid_task(ptr_buff, buffer);
     }
 
     return 0;
+}
+
+void load_keys(struct KEY (*keys)[M])
+{
+    const int hid_codes[N][M] = 
+    {
+        {HID_KEY_KEYPAD_0, HID_KEY_KEYPAD_1, HID_KEY_KEYPAD_2, HID_KEY_KEYPAD_3},
+        {HID_KEY_KEYPAD_5, HID_KEY_KEYPAD_6, HID_KEY_KEYPAD_7, HID_KEY_KEYPAD_8},
+        {HID_KEY_KEYPAD_COMMA, HID_KEY_KEYPAD_ADD, HID_KEY_KEYPAD_SUBTRACT, HID_KEY_NUM_LOCK},
+        {HID_KEY_SCROLL_LOCK, HID_KEY_KEYPAD_MULTIPLY, HID_KEY_SYSREQ_ATTENTION, HID_KEY_BACKSLASH},
+        {HID_KEY_KEYPAD_4, HID_KEY_KEYPAD_9, HID_KEY_ESCAPE, HID_KEY_DELETE}
+    };
+    const uint8_t hid_modifiers[N][M] = 
+    {
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0}
+    };
+    const char asciis[N][M] = 
+    {
+        {'0', '1', '2', '3'},
+        {'5', '6', '7', '8'},
+        {',', '+', '-', 'n'},
+        {'s', '*', 'y', '\\'},
+        {'4', '9', 'e', 'd'}
+    };
+
+    for(int i=0; i<N; i++)
+        for(int j=0; j<M; j++)
+        {
+            keys[i][j].hid_key = hid_codes[i][j];
+            keys[i][j].modifier = hid_modifiers[i][j];
+            keys[i][j].ascii = asciis[i][j];
+        }
 }
 
 void matrix_read(struct IO io, struct KEY (*keys)[M])
@@ -93,15 +121,15 @@ void matrix_read(struct IO io, struct KEY (*keys)[M])
             {
                 if(gpio_get(io.rows[j]))
                 {
-                    c = keys[i][j].ascci_key;
+                    c = keys[j][i].ascii;
 
                     char a[3] = {0};
                     a[0] = c;
                     a[1] = '\n';
 
-                    
-
                     uart_puts(uart0, a);
+
+                    hid_task(keys[j][i].modifier, keys[j][i].hid_key);
                 }
                 keys[j][i].pressed_flag = 0;
             }
@@ -116,7 +144,6 @@ void matrix_read(struct IO io, struct KEY (*keys)[M])
 void tud_mount_cb(void)
 {
 }
-
 // Invoked when device is unmounted
 void tud_umount_cb(void)
 {
@@ -128,7 +155,7 @@ void tud_umount_cb(void)
 void tud_suspend_cb(bool remote_wakeup_en)
 {
     (void) remote_wakeup_en;
-    //tud_remote_wakeup();
+    tud_remote_wakeup();
 }
 
 // Invoked when usb bus is resumed
@@ -136,71 +163,40 @@ void tud_resume_cb(void)
 {
 }
 
-//--------------------------------------------------------------------+
-// USB HID
-//--------------------------------------------------------------------+
 
+//--------------------------------------------------------------------+
+// USB HID; i<0 && *buffer != 
 static void send_hid_report(uint8_t report_id, uint8_t *keycode)
 {
-    // skip if hid is not ready yet
-    if ( !tud_hid_ready() ) return;
-
-    //btn = gpio_get(18);
-    // use to avoid send multiple consecutive zero report for keyboard
-    //static bool has_keyboard_key = false;
-    //uart_puts(uart0, "Keyboard\n");
+    if ( !tud_hid_ready() ) 
+    {
+        uart_puts(uart0, "return\n");
+        return;
+    }
 
     tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycode); 
-/*
-    if ( btn )
-    {
-        //uart_puts(uart0, "if\n");
-
-        //uint8_t keycode[6] = { 0 };
-        //keycode[0] = HID_KEY_A;
-        //keycode[1] = HID_KEY_B;
-        //keycode[2] = HID_KEY_C;
-
-        tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycode); 
-        //sleep_ms(1000);
-        //tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
-        has_keyboard_key = true;
-    }
-    else
-    {
-        //uart_puts(uart0, "else\n");
-        // send empty key report if previously has key pressed
-        if (has_keyboard_key) 
-        {
-            tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
-            //uart_puts(uart0, "has_keyboard_key\n");
-        }
-        has_keyboard_key = false;
-    }*/
 }
 
 // Every 10ms, we will sent 1 report for each HID profile (keyboard, mouse etc ..)
 // tud_hid_report_complete_cb() is used to send the next report after previous one is complete
-void hid_task(uint8_t *ptr_buff, uint8_t *buffer)
+void hid_task(uint8_t modifier, uint8_t hid_key)
 {
     // Poll every 10ms
     const uint32_t interval_ms = 10;
     static uint32_t start_ms = 0;
 
+    uart_puts(uart0, "Task\n");
+
     if ( board_millis() - start_ms < interval_ms) return; // not enough time
     start_ms += interval_ms;
-
-    uint32_t const btn = board_button_read();
     
     uint8_t keycode [6] = {0};
-    for(int i=5; i<0 && *buffer != '\0'; i--)
-    {
-        keycode[i] = *ptr_buff;
+    keycode [0] = hid_key;
 
-    }
+    uart_puts(uart0, "keycode\n");
 
     // Remote wakeup
-    if ( tud_suspended() && btn )
+    if ( tud_suspended() )
     {
         // Wake up host if we are in suspend mode
         // and REMOTE_WAKEUP feature is enabled by host
@@ -209,7 +205,7 @@ void hid_task(uint8_t *ptr_buff, uint8_t *buffer)
     else
     {
         // Send the 1st of report chain, the rest will be sent by tud_hid_report_complete_cb()
-        send_hid_report(REPORT_ID_KEYBOARD, btn);
+        send_hid_report(REPORT_ID_KEYBOARD, keycode);
     }
 }
 
@@ -221,9 +217,13 @@ void tud_hid_report_complete_cb(uint8_t instance, uint8_t const* report, uint8_t
     (void) instance;
     (void) len;
 
-    uint8_t next_report_id = report[0] + 1;
+    //uint8_t next_report_id = report[0] + 1;
+    uint8_t keycode [6] = {0};
+    keycode [0] = HID_KEY_KEYPAD_4;
 
-    send_hid_report(next_report_id, gpio_get(18));
+    uart_puts(uart0, "complete\n");
+
+    send_hid_report(REPORT_ID_KEYBOARD, keycode);
 }
 
 // Invoked when received GET_REPORT control request
