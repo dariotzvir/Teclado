@@ -32,6 +32,14 @@ int main()
     struct KEY keys [N][M];
     load_keys(keys);
 
+
+    gpio_init(SCROLL_LOCK_LED_GPIO);
+    gpio_set_dir(SCROLL_LOCK_LED_GPIO, GPIO_OUT);
+    gpio_init(CAPS_LOCK_LED_GPIO);
+    gpio_set_dir(CAPS_LOCK_LED_GPIO, GPIO_OUT);
+    gpio_init(NUM_LOCK_LED_GPIO);
+    gpio_set_dir(NUM_LOCK_LED_GPIO, GPIO_OUT);
+
     uart_init(uart0, 115200);
     gpio_set_function(16, GPIO_FUNC_UART);
     gpio_set_function(17, GPIO_FUNC_UART);
@@ -58,7 +66,6 @@ int main()
     while(1)
     {
         tud_task();
-        
         matrix_read(io, keys);
 
         //hid_task(ptr_buff, buffer);
@@ -75,13 +82,21 @@ void load_keys(struct KEY (*keys)[M])
         {HID_KEY_KEYPAD_5, HID_KEY_KEYPAD_6, HID_KEY_KEYPAD_7, HID_KEY_KEYPAD_8},
         {HID_KEY_KEYPAD_COMMA, HID_KEY_KEYPAD_ADD, HID_KEY_KEYPAD_SUBTRACT, HID_KEY_NUM_LOCK},
         {HID_KEY_SCROLL_LOCK, HID_KEY_KEYPAD_MULTIPLY, HID_KEY_SYSREQ_ATTENTION, HID_KEY_BACKSLASH},
-        {HID_KEY_KEYPAD_4, HID_KEY_KEYPAD_9, HID_KEY_ESCAPE, HID_KEY_DELETE}
+        {HID_KEY_KEYPAD_4, HID_KEY_KEYPAD_9, HID_KEY_ESCAPE, HID_KEY_BACKSPACE}
     };
     const uint8_t hid_modifiers[N][M] = 
     {
         {0, 0, 0, 0},
         {0, 0, 0, 0},
         {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 0}
+    };
+    const uint8_t single_press[N][M] = 
+    {
+        {0, 0, 0, 0},
+        {0, 0, 0, 0},
+        {0, 0, 0, 1},
         {0, 0, 0, 0},
         {0, 0, 0, 0}
     };
@@ -93,13 +108,14 @@ void load_keys(struct KEY (*keys)[M])
         {'s', '*', 'y', '\\'},
         {'4', '9', 'e', 'd'}
     };
-
+    
     for(int i=0; i<N; i++)
         for(int j=0; j<M; j++)
         {
             keys[i][j].hid_key = hid_codes[i][j];
             keys[i][j].modifier = hid_modifiers[i][j];
             keys[i][j].ascii = asciis[i][j];
+            keys[i][j].single_press = single_press[i][j];
         }
 }
 
@@ -112,33 +128,46 @@ void matrix_read(struct IO io, struct KEY (*keys)[M])
 
         for(int j=0; j<N; j++)
         {
-            if(gpio_get(io.rows[j]) && !keys[j][i].pressed_flag)
+            if(!keys[j][i].pressed_flag)
             {
-                keys[j][i].last_millis = board_millis();
-                keys[j][i].pressed_flag = 1;
-            } 
-            if(keys[j][i].pressed_flag && board_millis() - keys[j][i].last_millis >= DEBOUNCE_PERIOD)
-            {
-                if(gpio_get(io.rows[j]))
+                if(gpio_get(io.rows[j]) && !keys[j][i].debounce_flag)
                 {
-                    c = keys[j][i].ascii;
-
-                    char a[3] = {0};
-                    a[0] = c;
-                    a[1] = '\n';
-
-                    uart_puts(uart0, a);
-
+                    keys[j][i].last_millis_debounce = board_millis();
+                    keys[j][i].debounce_flag = 1;
+                } 
+                if(keys[j][i].debounce_flag && board_millis() - keys[j][i].last_millis_debounce >= DEBOUNCE_PERIOD)
+                {
+                    if(gpio_get(io.rows[j])) 
+                    {
+                        hid_task(keys[j][i].modifier, keys[j][i].hid_key);
+                        keys[j][i].pressed_flag = 1;
+                        if(!keys[j][i].single_press) keys[j][i].last_millis_repetition = board_millis();
+                    }
+                    keys[j][i].debounce_flag = 0;
+                }
+            }
+            else
+            {
+                if(!gpio_get(io.rows[j]) && !keys[j][i].debounce_flag)
+                {
+                    keys[j][i].last_millis_debounce = board_millis();
+                    keys[j][i].debounce_flag = 1;
+                } 
+                if(keys[j][i].debounce_flag && board_millis() - keys[j][i].last_millis_debounce >= DEBOUNCE_PERIOD)
+                {
+                    if(!gpio_get(io.rows[j])) keys[j][i].pressed_flag = 0;
+                    keys[j][i].debounce_flag = 0;
+                }
+                if(!keys[j][i].single_press && 
+                board_millis() - keys[j][i].last_millis_repetition >= REPETITION_PERIOD)
+                {
                     hid_task(keys[j][i].modifier, keys[j][i].hid_key);
                 }
-                keys[j][i].pressed_flag = 0;
             }
         }    
         gpio_put(io.columns[i], 0);
     }
 }
-
-
 
 // Invoked when device is mounted
 void tud_mount_cb(void)
@@ -196,10 +225,11 @@ void hid_task(uint8_t modifier, uint8_t hid_key)
     uart_puts(uart0, "keycode\n");
 
     // Remote wakeup
-    if ( tud_suspended() )
+    if ( tud_suspended() && keycode[0] )
     {
         // Wake up host if we are in suspend mode
         // and REMOTE_WAKEUP feature is enabled by host
+        uart_puts(uart0, "suspended\n");
         tud_remote_wakeup();
     }
     else
@@ -216,6 +246,7 @@ void tud_hid_report_complete_cb(uint8_t instance, uint8_t const* report, uint8_t
 {
     (void) instance;
     (void) len;
+    static bool aux = 1;
 
     //uint8_t next_report_id = report[0] + 1;
     uint8_t keycode [6] = {0};
@@ -223,7 +254,9 @@ void tud_hid_report_complete_cb(uint8_t instance, uint8_t const* report, uint8_t
 
     uart_puts(uart0, "complete\n");
 
-    send_hid_report(REPORT_ID_KEYBOARD, keycode);
+    if(aux)
+        send_hid_report(REPORT_ID_KEYBOARD, NULL);
+    aux = !aux;
 }
 
 // Invoked when received GET_REPORT control request
@@ -257,8 +290,12 @@ void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_
 
             uint8_t const kbd_leds = buffer[0];
 
-            if (kbd_leds & KEYBOARD_LED_NUMLOCK) board_led_write(true);
-            else board_led_write(false);
+            if (kbd_leds & KEYBOARD_LED_NUMLOCK) gpio_put(NUM_LOCK_LED_GPIO, 1);
+            else gpio_put(NUM_LOCK_LED_GPIO, 0);
+            if (kbd_leds & KEYBOARD_LED_CAPSLOCK) gpio_put(CAPS_LOCK_LED_GPIO, 1);
+            else gpio_put(CAPS_LOCK_LED_GPIO, 0);
+            if (kbd_leds & KEYBOARD_LED_SCROLLLOCK) gpio_put(SCROLL_LOCK_LED_GPIO, 1);
+            else gpio_put(SCROLL_LOCK_LED_GPIO, 0);
         }
     }
 }
